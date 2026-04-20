@@ -2,3 +2,5 @@ fastapi
 uvicorn
 pydantic
 httpx
+tenacity
+python-dotenv
