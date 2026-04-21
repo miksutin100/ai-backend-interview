@@ -1,10 +1,22 @@
 from typing import Optional
 from app.schemas import CompanyProfile
 
-LANG = ("1", "3", "2")  # fi → en → sv
+LANG = ("1", "3", "2")  # fi=1, en=3, sv=2; priority: fi → en → sv
 
 
 def _by_language(items: list, value_key: str) -> Optional[str]:
+    """Return the value for the highest-priority language from a list of localised items.
+
+    Iterates through items in Finnish, English, Swedish priority order
+    and returns the first non-empty value found.
+
+    Args:
+        items: List of dicts, each expected to have 'languageCode' and the given value_key.
+        value_key: The dict key whose value should be returned, e.g. 'description' or 'city'.
+
+    Returns:
+        The value for the highest-priority language, or None if no match found.
+    """
     indexed = {item.get("languageCode"): item.get(value_key) for item in items or []}
     for code in LANG:
         if indexed.get(code):
@@ -13,6 +25,19 @@ def _by_language(items: list, value_key: str) -> Optional[str]:
 
 
 def map_company(raw: dict) -> Optional[CompanyProfile]:
+    """Map a raw PRH API response to a CompanyProfile.
+
+    Extracts the first company from the response and picks the current
+    official name, earliest Trade Register entry, and localised fields
+    using Finnish → English → Swedish priority.
+
+    Args:
+        raw: Raw response dict from the PRH API.
+
+    Returns:
+        CompanyProfile with normalised company data,
+        or None if the response contains no companies.
+    """
     companies = raw.get("companies") or []
     if not companies:
         return None
