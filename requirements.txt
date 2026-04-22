@@ -4,3 +4,4 @@ pydantic
 httpx
 tenacity
 python-dotenv
+google-genai

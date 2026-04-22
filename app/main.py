@@ -1,8 +1,13 @@
+import json
+
 import httpx
 from fastapi import FastAPI, HTTPException
+from google.genai.errors import ClientError, ServerError
+from pydantic import ValidationError
 
 from app.client import fetch_company
-from app.schemas import CompanyProfile
+from app.extractor import extract_metrics
+from app.schemas import CompanyProfile, ExtractRequest, ExtractedMetrics
 from app.service import map_company
 from app.validators import is_valid_business_id
 
@@ -53,3 +58,29 @@ async def get_company(business_id: str):
         raise HTTPException(status_code=404, detail=f"Company '{business_id}' not found")
 
     return profile
+
+
+@app.post("/extract", response_model=ExtractedMetrics)
+async def extract(body: ExtractRequest):
+    """Extract structured financial metrics from unstructured text using an LLM.
+
+    Args:
+        body: Request body containing the free-form financial text.
+
+    Returns:
+        ExtractedMetrics with validated fields; missing values are null.
+
+    Raises:
+        HTTPException 502: If the LLM API returns an error or unparseable response.
+        HTTPException 503: If the LLM service is unreachable or times out.
+    """
+    try:
+        return await extract_metrics(text=body.text)
+    except ServerError as exc:
+        raise HTTPException(status_code=503, detail="LLM service unavailable") from exc
+    except ClientError as exc:
+        raise HTTPException(status_code=502, detail="LLM API error") from exc
+    except (json.JSONDecodeError, KeyError) as exc:
+        raise HTTPException(status_code=502, detail="LLM returned unparseable response") from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=502, detail="LLM response failed schema validation") from exc
